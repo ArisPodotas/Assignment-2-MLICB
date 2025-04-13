@@ -4,18 +4,19 @@ from mpl_toolkits.mplot3d import Axes3D
 import numpy as np
 import os
 import pandas as pd
+from sklearn.decomposition import PCA
 from sklearn.preprocessing import StandardScaler as Scale
 from time import time
 
 def timeit(func: Callable) -> Callable:
 	"""Prints the time a function took to execute"""
 	# This is my favorite functions and if you look at my other repositories on github it becomes quite obvious
-	def wrapper(*args, hush: bool = True, **kwargs):
+	def wrapper(*args, hush: bool = False, **kwargs):
 		start= time()
 		result = func(*args, **kwargs)
 		end = time()
 		elapsed = end - start
-		if hush:
+		if not hush:
 			print(f"'{func.__name__}' executed in {elapsed:.4f} seconds")
 		return result
 	return wrapper
@@ -25,6 +26,7 @@ class Utils:
     def __init__(self, path: os.PathLike | str) -> None:
         assert isinstance(path, os.PathLike | str), 'The path should be interpretable for saving images'
         self.path = path
+        os.makedirs(self.path, exist_ok = True)
 
     @timeit
     def findMissing(self, dataframe: pd.DataFrame) -> int:
@@ -161,4 +163,55 @@ class Utils:
         output: pd.DataFrame = dataframe.copy()
         output.iloc[:, start:stop] = holder
         return output
+
+    @timeit
+    def searchPca(self, data: pd.DataFrame) -> None:
+        """Calculates and plots the explain values for each feature"""
+        # I notmalize the blue curve to the red one so that both are visible in detail
+        pca = PCA()
+        pca.fit(data)
+        plt.plot(range(1, len(data.columns) + 1), pca.explained_variance_ratio_, color = 'red', label = 'Raw variance')
+        plt.plot(range(1, len(data.columns) + 1), [sum(pca.explained_variance_ratio_[0:i]) for i in range(len(data.columns))], color = 'blue', label = 'Cummulative variance')
+        plt.grid()
+        plt.legend()
+        plt.title('Explain (%) of principal components')
+        plt.xlabel('Principal component')
+        plt.ylabel('Explained variance')
+        plt.show()
+        plt.savefig(f'{self.path}/Explain of all principaled components.png')
+
+    def transformPca(self, dataframe: pd.DataFrame, components: int) -> tuple:
+        """Applies a PCA to the dataframe"""
+        data = dataframe.iloc[:, 2:].values
+        obj = PCA(n_components = components)
+        fit = obj.fit_transform(data)
+        pcaDf = pd.DataFrame(fit, columns = [f'P.C. {i+1}' for i in range(components)])
+        return pcaDf, obj.explained_variance_ratio_
+
+    @timeit
+    def componentSearch(self, dataframe: pd.DataFrame, cutoff: float | int) -> int:
+        """
+        This function will do search on the results of the pca for different components until it find the minimum number of omponents with a cutoff explain
+        Will return the components to keep
+        """
+        for n in range(len(dataframe.columns) - 2): # The -2 is because we skip the first 2 columns
+            dfPca, explain = self.transformPca(dataframe, n)
+            if sum(explain) >= cutoff:
+                output: int = n
+                break
+        if output:
+            return output
+        else:
+            return -1
+
+    @timeit
+    def implementPca(self, dataframe: pd.DataFrame, cutoff: float | int, verbose: bool = False) -> tuple:
+        """
+        This function will return the pca resutls for the first Pca run that passes cutoff
+        """
+        components = self.componentSearch(dataframe, cutoff)
+        pca = self.transformPca(dataframe, components)
+        if verbose:
+            print(f'Total explain: {sum(pca[1])}\nComponents {components}')
+        return pca
 

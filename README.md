@@ -12,6 +12,8 @@ The single responsibility principle is followed with the small caveat that there
 
 These 3 overloads are self explanatory but their implementation is usually of checking a control flow statement and then running a distinct function within the overloaded one we are at.
 
+Whitespace is minimal, I think every namespace scope should be in one continuous block with no whitespace. This has to do with fundamental personal development environment choices and how I have a keybind to jump to the next white space that I use to quickly jump through functions and scopes
+
 # Links and References
 
 All links to websites other than the github repository the assignment is implemented in will be of the url. All links of materials from within the github repository will use relative paths, should these relative paths not be supported in the in browser version of the assignment on github they should work once the repository has been cloned locally.
