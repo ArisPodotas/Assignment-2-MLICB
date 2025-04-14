@@ -170,15 +170,16 @@ class Utils:
         # I notmalize the blue curve to the red one so that both are visible in detail
         pca = PCA()
         pca.fit(data)
-        plt.plot(range(1, len(data.columns) + 1), pca.explained_variance_ratio_, color = 'red', label = 'Raw variance')
-        plt.plot(range(1, len(data.columns) + 1), [sum(pca.explained_variance_ratio_[0:i]) for i in range(len(data.columns))], color = 'blue', label = 'Cummulative variance')
-        plt.grid()
-        plt.legend()
-        plt.title('Explain (%) of principal components')
-        plt.xlabel('Principal component')
-        plt.ylabel('Explained variance')
+        fig, ax = plt.subplots()
+        ax.plot(range(1, len(data.columns) + 1), pca.explained_variance_ratio_, color = 'red', label = 'Raw variance')
+        ax.plot(range(1, len(data.columns) + 1), [sum(pca.explained_variance_ratio_[0:i]) for i in range(len(data.columns))], color = 'blue', label = 'Cummulative variance')
+        ax.grid()
+        ax.legend()
+        ax.set_title('Explain (%) of principal components')
+        ax.set_xlabel('Principal component')
+        ax.set_ylabel('Explained variance')
         plt.show()
-        plt.savefig(f'{self.path}/Explain of all principaled components.png')
+        fig.savefig(f'{self.path}/Explain of all principaled components.png')
 
     def transformPca(self, dataframe: pd.DataFrame, components: int) -> tuple:
         """Applies a PCA to the dataframe"""

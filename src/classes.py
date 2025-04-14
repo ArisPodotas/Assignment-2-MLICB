@@ -13,6 +13,8 @@ from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.linear_model import LogisticRegression
 from sklearn.naive_bayes import GaussianNB
+from sklearn.metrics import f1_score
+from sklearn.metrics import fbeta_score
 from sklearn.svm import SVC
 from tqdm import tqdm
 from typing import Sequence
@@ -67,17 +69,63 @@ class RNCV:
 
     @timeit
     def fit(self,
-            fs: bool = False,
+            fs: int | None = None,
             optimize: bool = False,
-            plot: bool = True) -> None:
+            innerPlots: bool = True,
+            printEvals: bool = True) -> None:
         """Splits the dataset and trains - evaluates all models with the given splits"""
         # pre allocating memory
+        # In every loop we write over these lists and the final list should have all the values from all the respective folds
+        # In the next loop the lists will be overwritten
+        self.outerFoldModels: list = [0] * self.oF
         self.outerFoldPredictions: list = [0] * self.oF
-        self.ourterFoldEvaluations: list = [0] * self.oF
-        self.innerFoldPredictions: list = [0] * self.iF
+        self.outerFoldEvaluations: np.ndarray = np.array(
+            [
+                [
+                    [0] * len(self.estimators)
+                ] * len(self.metrics)
+            ] * self.oF, dtype = np.float64
+        )
         self.innerFoldModels: list = [0] * self.iF
-        self.innerFoldEvaluations: list = [0] * self.iF
+        self.innerFoldPredictions: list = [0] * self.iF
+        self.innerFoldEvaluations: np.ndarray = np.array(
+            [
+                [
+                    [0] * len(self.estimators)
+                ] * len(self.metrics)
+            ] * self.iF, dtype = np.float64
+        )
+        # Now I will make lists to append these to so that I can keep each loop
+        self.wrapperOFM: list = [0] * self.loops
+        self.wrapperOFP: list = [0] * self.loops
+        self.wrapperOFE: np.ndarray = np.array(
+            [
+                [
+                    [
+                        [0] * len(self.estimators)
+                    ] * len(self.metrics)
+                ] * self.oF, 
+            ] * self.loops,
+            dtype = np.float64
+        )
+        self.wrapperIFM: list = [0] * self.loops
+        self.wrapperIFP: list = [0] * self.loops
+        self.wrapperIFE: np.ndarray = np.array(
+            [
+                [
+                    [
+                        [0] * len(self.estimators)
+                    ] * len(self.metrics)
+                ] * self.iF,
+            ] * self.loops,
+            dtype = np.float64
+        )
         self.preprocess()
+        if fs is not None:
+            holder = self.data['diagnosis']
+            self.data = self.featureSelection(self.data, n = fs)
+            self.data['diagnosis'] = holder
+            del holder
         for loop in tqdm(range(self.loops)):
             train, trainLabels, self.test, self.testLabels = self._split(
                 self.data,
@@ -94,36 +142,64 @@ class RNCV:
                     hush = True
                 )
                 del holder
-                if fs:
-                    # Todo add all the calls we need since there are many sets
-                    self.data = self.featureSelection(self.data)
-                if optimize:
-                    # Todo fill the tuple
-                    self.hyper = [
-                        self.optimizeLR(
-                        ),
-                        self.optimizeGNB(
-                        ),
-                        self.optimizeLDA(
-                        ),
-                        self.optimizeSVC(
-                        ),
-                        self.optimizeRFC(
-                        ),
-                        self.opttimizeLGBM(
-                        )
-                    ]
                 for index in range(self.iF):
+                    if optimize:
+                        self.hyper = [
+                            self.optimizeLR(
+                                fbeta_score,
+                                self.train[index],
+                                self.trainLabels[index],
+                                self.val[index],
+                                self.valLabels[index],
+                            ),
+                            self.optimizeGNB(
+                                fbeta_score,
+                                self.train[index],
+                                self.trainLabels[index],
+                                self.val[index],
+                                self.valLabels[index],
+                            ),
+                            self.optimizeLDA(
+                                fbeta_score,
+                                self.train[index],
+                                self.trainLabels[index],
+                                self.val[index],
+                                self.valLabels[index],
+                            ),
+                            self.optimizeSVC(
+                                fbeta_score,
+                                self.train[index],
+                                self.trainLabels[index],
+                                self.val[index],
+                                self.valLabels[index],
+                            ),
+                            self.optimizeRFC(
+                                fbeta_score,
+                                self.train[index],
+                                self.trainLabels[index],
+                                self.val[index],
+                                self.valLabels[index],
+                            ),
+                            self.optimizeLGBM(
+                                fbeta_score,
+                                self.train[index],
+                                self.trainLabels[index],
+                                self.val[index],
+                                self.valLabels[index],
+                            )
+                        ]
                     # Train
                     self.innerFoldModels[index] = self.fitting(
                         self.estimators,
                         self.train[index],
                         self.trainLabels[index],
-                        arguments = self.hyper
+                        arguments = self.hyper,
+                        hush = True
                     )
                     self.innerFoldPredictions[index] = self.useFitModels(
                         self.innerFoldModels[index],
-                        self.val[index]
+                        self.val[index],
+                        hush = True
                     )
                     # Evaluate
                     self.innerFoldEvaluations[index] = self.applyMetrics(
@@ -131,21 +207,121 @@ class RNCV:
                         self.innerFoldModels[index],
                         self.valLabels[index],
                         self.innerFoldPredictions[index],
-                        arguments = self.args
+                        arguments = self.args,
+                        hush = True
                     )
-                    print(f'Evaluations for i.f {index}, o.f {split}: {self.innerFoldEvaluations[index]}')
-                    # Plot
-                    self.visualiseEvaluations(
-                        self.innerFoldEvaluations[index],
-                        self.innerFoldModels[index],
+                self.wrapperIFM[loop] = self.innerFoldModels
+                self.wrapperIFP[loop] = self.innerFoldPredictions
+                self.wrapperIFE[loop] = self.innerFoldEvaluations
+                if printEvals:
+                    print(self.innerFoldEvaluations)
+                if innerPlots:
+                    self.plotKfoldInner_(
+                        self.innerFoldModels,
                         self.metrics,
-                        name1 = index,
-                        name2 = split
+                        self.innerFoldEvaluations,
+                        name = f'Inner fold boxplots ({loop}, {split})',
+                        hush = True
                     )
-                print(self.innerFoldEvaluations)
-                self.plotKfold(self.innerFoldModels, self.metrics, self.innerFoldEvaluations)
+                if optimize:
+                    self.hyper = [
+                        self.optimizeLR(
+                            fbeta_score,
+                            train[split],
+                            trainLabels[split],
+                            self.test[split],
+                            self.testLabels[split],
+                        ),
+                        self.optimizeGNB(
+                            fbeta_score,
+                            train[split],
+                            trainLabels[split],
+                            self.test[split],
+                            self.testLabels[split],
+                        ),
+                        self.optimizeLDA(
+                            fbeta_score,
+                            train[split],
+                            trainLabels[split],
+                            self.test[split],
+                            self.testLabels[split],
+                        ),
+                        self.optimizeSVC(
+                            fbeta_score,
+                            train[split],
+                            trainLabels[split],
+                            self.test[split],
+                            self.testLabels[split],
+                        ),
+                        self.optimizeRFC(
+                            fbeta_score,
+                            train[split],
+                            trainLabels[split],
+                            self.test[split],
+                            self.testLabels[split],
+                        ),
+                        self.optimizeLGBM(
+                            fbeta_score,
+                            train[split],
+                            trainLabels[split],
+                            self.test[split],
+                            self.testLabels[split],
+                        )
+                    ]
+                # Train
+                self.outerFoldModels[split] = self.fitting(
+                    self.estimators,
+                    train[split],
+                    trainLabels[split],
+                    arguments = self.hyper,
+                    hush = True
+                )
                 # Evaluate
-                # Plot
+                self.outerFoldPredictions[split] = self.useFitModels(
+                    self.outerFoldModels[split],
+                    self.test[split],
+                    hush = True
+                )
+                self.outerFoldEvaluations[split] = self.applyMetrics(
+                    self.metrics,
+                    self.outerFoldModels[split],
+                    self.testLabels[split],
+                    self.outerFoldPredictions[split],
+                    arguments = self.args,
+                    hush = True
+                )
+            self.wrapperOFM[loop] = self.outerFoldModels
+            self.wrapperOFP[loop] = self.outerFoldPredictions
+            self.wrapperOFE[loop] = self.outerFoldEvaluations
+            if printEvals:
+                print(self.outerFoldEvaluations)
+            if innerPlots:
+                self.plotKfoldInner_(
+                    self.outerFoldModels,
+                    self.metrics,
+                    self.outerFoldEvaluations,
+                    name = f'Outer fold boxplots ({loop})',
+                    hush = True
+                )
+        self.plotKfoldSummary(
+            self.outerFoldModels,
+            self.metrics,
+            self.wrapperOFE,
+            name = f'All loop outer folds boxplots',
+            hush = True
+        )
+        self.plotKfoldSummary(
+            self.innerFoldModels,
+            self.metrics,
+            self.wrapperIFE,
+            name = f'All loop inner fold boxplots',
+            hush = True
+        )
+        return None
+
+    def winner(self, arg: type) -> None:
+        """Trains and saves the winner with the whole data"""
+        # body
         return None
 
     @timeit
@@ -268,20 +444,38 @@ class RNCV:
         return predictions
 
     @timeit
-    def plotKfold(self, methods: list , metrics: list, scores: np.ndarray) -> None:
+    def plotKfoldInner_(self, methods: list , metrics: list, scores: np.ndarray, name: str, showFig: bool = True) -> None:
         """Plots the output of fit"""
-        # scores is 4d (split*iterations, len(metrics), len(methods), 1)
-        holder = len(methods)
+        holder = len(methods[0])
         temp = len(metrics)
         fig, ax = plt.subplots(nrows=holder, ncols=temp, figsize=(6*holder, 4*temp), sharey = True)
         for i in range(temp): # Should iterate input col
             for index in range(holder): # Should iterate input row
-                ax[index, i].boxplot(scores[:, i, index, :], showmeans=True, meanline=True, sym = '.') # index, i is row, col in matplotlib
+                ax[index, i].boxplot(scores[:, i, index], showmeans=True, meanline=True, sym = '.') # index, i is row, col in matplotlib
                 ax[index, i].set_title(f"Metric: {metrics[i].__name__}") # Funciton are first class objects in python so __name__ just returns the function name string
                 ax[index, i].grid()
                 ax[index, i].set_ylabel(f'{metrics[i].__name__} Value')
-                ax[index, i].set_xlabel(f'Method: {methods[index].__name__}')
-        plt.show()
+                ax[index, i].set_xlabel(f'Method: {methods[0][index].__class__.__name__}')
+        if showFig:
+            plt.show()
+        fig.savefig(self.figures + name + '.png')
+
+    @timeit
+    def plotKfoldSummary(self, methods: list , metrics: list, scores: np.ndarray, name: str, showFig: bool = True) -> None:
+        """Plots the output of fit"""
+        holder = len(methods[0])
+        temp = len(metrics)
+        fig, ax = plt.subplots(nrows=holder, ncols=temp, figsize=(6*holder, 4*temp), sharey = True)
+        for i in range(temp): # Should iterate input col
+            for index in range(holder): # Should iterate input row
+                ax[index, i].boxplot(scores[:, :, i, index].flatten(), showmeans=True, meanline=True, sym = '.') # index, i is row, col in matplotlib
+                ax[index, i].set_title(f"Metric: {metrics[i].__name__}") # Funciton are first class objects in python so __name__ just returns the function name string
+                ax[index, i].grid()
+                ax[index, i].set_ylabel(f'{metrics[i].__name__} Value')
+                ax[index, i].set_xlabel(f'Method: {methods[0][index].__class__.__name__}')
+        if showFig:
+            plt.show()
+        fig.savefig(self.figures + name + '.png')
 
     @timeit
     def applyMetrics(self,
@@ -345,7 +539,7 @@ class RNCV:
             ax[i].grid()
         if not saveOnly:
             plt.show()
-        plt.savefig(self.figures + f'Evaluations loop inner fold {name1} outer fold {name2}.png')
+        fig.savefig(self.figures + f'Evaluations loop inner fold {name1} outer fold {name2}.png')
         if verbose:
             print(input)
 
@@ -401,12 +595,14 @@ class RNCV:
         y = data[keyword]
         return x, y
 
-    def save_(self, filename: str | None) -> None:
+    @timeit
+    def save_(self, filename: str | None = None) -> None:
         """Uses joblib to save this class as a pickle file in the self.path directory"""
         if filename is None:
             filename = self.name
-        joblib.dump(self, self.path + filename)
+        joblib.dump(self, self.path + filename + '.pkl')
 
+    @timeit
     def optimizeLR(self,
                    metric: Callable,
                    train: pd.DataFrame,
@@ -424,29 +620,25 @@ class RNCV:
             """Defines an objective to optimize"""
             c = trial.suggest_float('C', 0.1, 10.0)
             max_i = trial.suggest_int('max_iter', 50, 500)
-            pen = trial.suggest_categorical('penalty', [None, 'l2', 'l1', 'elasticnet'])
-            dual = trial.suggest_categorical('dual', [True, False])
             intercept = trial.suggest_categorical('fit_intercept', [True, False])
             sol = trial.suggest_categorical('solver', ['lbfgs', 'liblinear', 'newton-cg', 'newton-cholesky', 'sag', 'saga'])
             ratio = trial.suggest_float('l1_ratio', 0.0, 1.0)
             model = LogisticRegression(
                 C = c,
                 max_iter = max_i,
-                penalty = pen,
-                dual = dual,
                 fit_intercept=intercept,
                 solver = sol,
                 l1_ratio = ratio
             )
             model.fit(train, preds)
             output = model.predict(val)
-            return metric(output, truth)
+            return metric(output, truth, beta = 2)
         study = optuna.create_study()
-        study.optimize(objective, n_trials = trials)
+        study.optimize(objective, n_trials = trials, timeout = 500)
         return study.best_params
 
     @timeit
-    def optimizeNBC(self,
+    def optimizeGNB(self,
                     metric: Callable,
                     train: pd.DataFrame,
                     preds: pd.DataFrame,
@@ -465,11 +657,12 @@ class RNCV:
             model = GaussianNB(var_smoothing = var)
             model.fit(train, preds)
             output = model.predict(val)
-            return metric(output, truth)
+            return metric(output, truth, beta = 2)
         study = optuna.create_study()
-        study.optimize(objective, n_trials = trials)
+        study.optimize(objective, n_trials = trials, timeout = 500)
         return study.best_params
 
+    @timeit
     def optimizeLDA(self,
                     metric: Callable,
                     train: pd.DataFrame,
@@ -486,18 +679,17 @@ class RNCV:
                       truth: pd.DataFrame = truth) -> float:
             """Defines an objective to optimize"""
             solver = trial.suggest_categorical('solver', ['svd', 'lsqr', 'eigen'])
-            shrink = trial.suggest_float('shrinkage', 0.0, 1.0)
             model = LinearDiscriminantAnalysis(
                 solver = solver,
-                shrinkage = shrink
             )
             model.fit(train, preds)
             output = model.predict(val)
-            return metric(output, truth)
+            return metric(output, truth, beta = 2)
         study = optuna.create_study()
-        study.optimize(objective, n_trials = trials)
+        study.optimize(objective, n_trials = trials, timeout = 500)
         return study.best_params
 
+    @timeit
     def optimizeSVC(self,
                     metric: Callable,
                     train: pd.DataFrame,
@@ -513,19 +705,19 @@ class RNCV:
                       val: pd.DataFrame = val,
                       truth: pd.DataFrame = truth) -> float:
             """Defines an objective to optimize"""
-            c = trial.suggest_float('C', 0.1, 10.0)
+            c = trial.suggest_float('C', 1.0, 5.0)
             gamma = trial.suggest_categorical('gamma', ['auto', 'scale'])
-            kernel = trial.suggest_categorical('kernel', ['linear', 'poly', 'rbf'])
             degree = trial.suggest_int('degree', 2, 5)
-            coef = trial.suggest_float('coef0', 0.0, 1.0)
-            model = SVC(C=c, kernel=kernel, degree=degree, coef0=coef, gamma=gamma)
+            coef = trial.suggest_float('coef0', 0.1, 1.0)
+            model = SVC(C=c, degree=degree, coef0=coef, gamma=gamma, random_state = 42)
             model.fit(train, preds)
             output = model.predict(val)
-            return metric(output, truth)
+            return metric(output, truth, beta = 2)
         study = optuna.create_study()
-        study.optimize(objective, n_trials = trials)
+        study.optimize(objective, n_trials = trials, timeout = 300)
         return study.best_params
 
+    @timeit
     def optimizeRFC(self,
                     metric: Callable,
                     train: pd.DataFrame,
@@ -549,11 +741,12 @@ class RNCV:
             )
             model.fit(train, preds)
             output = model.predict(val)
-            return metric(output, truth)
+            return metric(output, truth, beta = 2)
         study = optuna.create_study()
-        study.optimize(objective, n_trials = trials)
+        study.optimize(objective, n_trials = trials, timeout = 500)
         return study.best_params
 
+    @timeit
     def optimizeLGBM(self,
                      metric: Callable,
                      train: pd.DataFrame,
@@ -569,20 +762,18 @@ class RNCV:
                       val: pd.DataFrame = val,
                       truth: pd.DataFrame = truth) -> float:
             """Defines an objective to optimize"""
-            tp = trial.suggest_categorical('boosting_type', ['gbdt', 'dart', 'rf'])
             lr = trial.suggest_float('learning_rate', 0.0, 0.5)
             alpha = trial.suggest_float('reg_alpha', 0.0, 1.0)
             lam = trial.suggest_float('reg_lambda', 0.0, 1.0)
             model = LGBMClassifier(
-                boosting_type = tp,
                 learning_rate = lr,
                 reg_alpha = alpha,
                 reg_lambda=lam
             )
             model.fit(train, preds)
             output = model.predict(val)
-            return metric(output, truth)
+            return metric(output, truth, beta = 2)
         study = optuna.create_study()
-        study.optimize(objective, n_trials = trials)
+        study.optimize(objective, n_trials = trials, timeout = 500)
         return study.best_params
 
