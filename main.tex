@@ -115,7 +115,13 @@ National and Kapodistrian University of Athens}
 
     \subsection{Implementation} \label{subsec:impl}
 
-    All results were created in the \textit{Python} programming language \cite{noauthor_3132_nodate}. Functionality from \href{https://github.com/ArisPodotas/Assignment-1-MLICB}{this repository} was also used in the analysis.
+    All results were created in the \textit{Python} programming language \cite{noauthor_3132_nodate}. Functionality from \href{https://github.com/ArisPodotas/Assignment-1-MLICB}{this repository} (last assignment) was also used in the analysis.
+    \newline
+
+    All source files will be available in \href{https://github.com/ArisPodotas/Assignment-2-MLICB/tree/master}{this repository}.
+    \newline
+
+    The approach of the implementation was of OOP (Object Oriented Programming) and all requirements are completed within two classes, a utility class (implemented \href{https://github.com/ArisPodotas/Assignment-2-MLICB/blob/master/src/utils.py}{here}) and a RNCV (Repeated Nested Cross Validation) class (implemented \href{https://github.com/ArisPodotas/Assignment-2-MLICB/blob/master/src/classes.py}{here}).
     \newline
 
     \subsection{Models} \label{subsec:models}
@@ -124,11 +130,11 @@ National and Kapodistrian University of Athens}
     \newline
 
     \begin{enumerate} \label{enm:models}
-        \item 
-        \item 
-        \item 
-        \item 
-        \item 
+        \item Logistic Regression
+        \item Gaussian Naive Bayes
+        \item Linear Discriminant Analysis
+        \item Support Vector Classifier
+        \item Random Forest Classifier
     \end{enumerate}
 
     Models were imported from the \textit{sklearn} \cite{noauthor_scikit-learn_nodate} library in \textit{Python} \cite{noauthor_3132_nodate}.
@@ -136,48 +142,34 @@ National and Kapodistrian University of Athens}
 
     \subsection{Evaluation metrics} \label{subsec:metrics}
 
-    Four evaluation metrics were chosen
+    The following evaluation metrics were chosen:
     \newline
 
     \begin{enumerate} \label{enm:metrics}
-        \item Root mean squared error
-        \item Mean absolute error
-        \item R2 score
-        \item Median absolute error
+        \item balanced accuracy score 
+        \item f1 score
+        \item Hamming loss
+        \item fbeta score
+        \item Jaccard score
+        \item Matthews corrcoef
+        \item precision score
+        \item recall score
     \end{enumerate}
 
-    As a result of knowing about outliers a median metric must be included to compare with the non-median metrics. We will not be using the "Auc" metrics since our task is not fit for it.
+    We will not be using the "Auc" metrics since our task is not fit for it. For the fbeta score we have used a beta of $2$ since we would like to give the negative and less represented class more weight.
     \newline
 
     \subsection{Confidences} \label{subsec:conf}
 
-    $1000$ iteration \textit{bootstrapping} was done on models for evaluation along with repeated \textit{k-fold cross validation} for $50$ folds, $20$ iterations.
-    \newline
-
-    The \textit{sklearn} library \cite{noauthor_scikit-learn_nodate} does not contain a \textit{bootstrapping} function that we can use to call on our models. A protocol was written at \href{https://github.com/ArisPodotas/Assignment-1-MLICB/blob/main/src/functions.py}{our source files}.
-    \newline
-
-    Three distinct \textit{bootstrap} implementations were assessed.
-    \newline
-
-    \begin{enumerate} \label{enm:bootstrap}
-        \item Only altering the training set
-        \item Only altering the validation set
-        \item Altering both the training and validation set
-    \end{enumerate}
-
-    For all models all three were used.
-    \newline
-
-    All files can be found at \href{https://github.com/ArisPodotas/Assignment-2-MLICB}{this repository}.
+    \textit{Repeated nested K-fold cross validation} for $10$ folds, $5$ outer folds and $3$ inner folds were done for each model as per the requirements. Each individual evaluation of any model at any stage is calculated but only kept in memory momentarily, the results of each evaluation is seen only within the plots produced by the class. Individual evaluations from the inner folds outer folds and each loop are calculated and plotted in boxplots that try to capture the distribution space of each models evaluation rather than singular evaluation values.
     \newline
 
     \subsection{Figures} \label{subsec:figs}
 
-    Figures were generated from the \textit{matplotlib} \cite{noauthor_matplotlib_nodate} library, all implementations are available at \href{https://github.com/ArisPodotas/Assignment-1-MLICB/blob/main/src/functions.py}{our source files}.
+    Figures were generated from the \textit{matplotlib} \cite{noauthor_matplotlib_nodate} library, all implementations are available at \href{https://github.com/ArisPodotas/Assignment-2-MLICB}{our source files}.
     \newline
 
-    In all box plots the dotted green line denotes the mean value and the orange line denotes the median.
+    In all box plots the dotted green line denotes the mean value and the orange line denotes the median value.
     \newline
 
     \subsection{Missing data} \label{subsec:missing}
@@ -187,7 +179,7 @@ National and Kapodistrian University of Athens}
 
     \subsection{Classes} \label{subsec:class}
 
-    One class was implemented for the repeated k fold cross validation
+    A utility class (implemented \href{https://github.com/ArisPodotas/Assignment-2-MLICB/blob/master/src/utils.py}{here}) and a RNCV (Repeated Nested Cross Validation) class (implemented \href{https://github.com/ArisPodotas/Assignment-2-MLICB/blob/master/src/classes.py}{here}) were written according to the following diagram.
     \newline
 
 \end{multicols}
@@ -196,12 +188,15 @@ National and Kapodistrian University of Athens}
         \begin{center}
             \includegraphics[width=0.95\textwidth]{figures/rcv.png}
         \end{center}
-        \caption{Flow chart of cross validation class implementation}\label{fig:class outline}
+        \caption{Flow chart of class implementation}\label{fig:class outline}
     \end{figure}
 
 \begin{multicols}{2}
 
-    This figure was made in Excalidraw \cite{}. Only the main aspects of the class are written in the flow diagram since other implementation details are not part of the purpose of the class such as the "__repr__()" magic method.
+    This figure was made in Excalidraw \cite{}. Only the main aspects of the class are written in the flow diagram since other implementation details are not part of the purpose of the class such as the "\_\_repr\_\_()" magic method.
+    \newline
+
+    The "RNCV" class has an attribute of a "Utility" class instance object and that is why these two have control flow from one into the other.
     \newline
 
     \subsection{Data transformations} \label{subsec:transforms}
@@ -210,18 +205,24 @@ National and Kapodistrian University of Athens}
     \newline
 
     \begin{enumerate} \label{enm:casting}
-        \item B -> $0$
-        \item M -> $1$
+        \item B $\rightarrow \; 0$
+        \item M $\rightarrow \; 1$
     \end{enumerate}
 
     \subsection{Feature selection} \label{subsec:fselect}
 
+    For the main requirements of the assignment a Principled Component Analysis was used (after the baseline models). We will require a 95\% explain of our data variance after the feature selection.
+    \newline
+
+    For further feature selections see \ref{sec:bonus1}
+    \newline
+
     \subsection{Hyper parameter optimization} \label{subsec:optuna}
 
-    \section{Results} \label{sec:res}
-
-    We are tasked with evaluating this data completely thus we need to identify data types and cast fields to values we can use. Our data was of continuous values variables for all fields but one, that was converted to a binary field.
+    The optuna library \cite{} was used for all hyperparameter tuning (only in an instance after the baseline). All optimizations are in relation to the fbeta score since we would like to define the beta parameter of this metric to $2$ for a higher weight on the smaller positive class.
     \newline
+
+    \section{Results} \label{sec:res}
 
     \subsection{Data Exploration} \label{subsec:expl}
 
@@ -253,14 +254,97 @@ National and Kapodistrian University of Athens}
     We can make some sort of comment on the appearance of the central limit theorem in Figure~\ref{fig:hists} considering we get a Gaussian looking distribution \cite{} from taking the mean values of feature's distributions.
     \newline
 
-    Descriptive statistics were calculated for the initial data in the \href{}{respective notebook} and then saved to \href{}{this comma separated values file}
+\end{multicols}
+
+\begin{figure}[H]
+    \begin{center}
+        \includegraphics[width=0.95\textwidth]{figures/Explain of all principaled components.png}
+    \end{center}
+    \caption{Explain \% of all principal components}\label{fig:PCA search}
+\end{figure}
+
+    We can see that very few principled components will be needed for the 95\% variance explain we will require. Specifically we will see that only $2$ features reach this percentage (other than the labels).
+    \newlinw
+
+\begin{multicols}{2}
+
+    Descriptive statistics were calculated for the initial data in the \href{https://github.com/ArisPodotas/Assignment-2-MLICB/blob/master/notebooks/Feeling%20the%20data.ipynb}{respective notebook} and then saved to \href{https://github.com/ArisPodotas/Assignment-2-MLICB/blob/master/data/statistics.csv}{this comma separated values file}.
     \newline
 
     \subsection{Baseline} \label{subsec:baseline}
 
+    We are tasked with evaluating this data completely thus we need to identify data types and cast fields to values we can use. Our data was of continuous values variables for all fields but one, that was converted to a binary field as was mentioned in \ref{subsec:transforms}. Immediately after and with no feature selection or optimization the baseline model was made.
+    \newline
+
+    Evaluations of the Baseline:
+    \newline
+
+\end{multicols}
+
+\begin{figure}[H]
+    \begin{center}
+        \includegraphics[width=0.95\textwidth]{figures/RNCV/Baseline/All loop outer folds boxplots.png}
+        \caption{Final distributions of all loops of the baseline model}\label{fig:Baseline descriptive statistics}
+    \end{center}
+\end{figure}
+
+\begin{multicols}{2}
+
+    You can find the baseline model in \href{https://github.com/ArisPodotas/Assignment-2-MLICB/tree/master/models/Baseline}{in this folder}. As was said in \ref{subsec:optuna} one of the best descriptive statistics here is the fbeta score. It is easy for our models to simply always predict benign and get high metrics but the fbeta score is weighed toward the proper predictions of the malignant tumors.
+    \newline
+
     \subsection{Feature selection} \label{subsec:fs}
 
+\end{multicols}
+
+\begin{figure}[H]
+    \begin{center}
+        \includegraphics[width=0.95\textwidth]{figures/RNCV/FeatureSelection/All loop outer folds boxplots.png}
+        \caption{Final distributions of all loops of the feature selected model}\label{fig:fs model desc}
+    \end{center}
+\end{figure}
+
+\begin{multicols}{2}
+
+    We notice that the metrics do not improve much since there is little space to improve from the Baseline~\ref{subsec:baseline}. Infact we expect that since we prune so many of our features to only remain with $2$ form the initial $31$ our metrics would decrease, here we see a resilience to this and a very good explanatory feature in our data.
+    \newlin
+
+    \subsection{Bonus 1} \label{subsec:bonus}
+
+    The previous feature selection method was a PCA, now we will try () and compare it to the previous feature selection however we will not take it into account for our winner model and the final conclusions to be fair.
+    \newline
+
+\end{multicols}
+
+\begin{figure}[H]
+    \begin{center}
+        \includegraphics[width=0.95\textwidth]{figures/RNCV/FeatureSelection/All loop outer folds boxplots.png}
+        \caption{Final distributions of all loops of the feature selected model}\label{fig:fs model desc}
+    \end{center}
+\end{figure}
+
+\begin{multicols}{2}
+
+    \subsection{Optimized} \label{subsec:opted model}
+
+\end{multicols}
+
+\begin{figure}[H]
+    \begin{center}
+        \includegraphics[width=0.95\textwidth]{figures/RNCV/Optimized/All loop outer folds boxplots.png}
+        \caption{Final distributions of all loops of the optimized model}\label{fig:optuna desc}
+    \end{center}
+\end{figure}
+
+\begin{multicols}{2}
+
+    We can see that in our attempt to optimize for the fbeta score some of our models worsen quite alot for all metrics. We can see some marginal improvements on the fbeta score for some of the models (the mean and median value may remain the same but the distribution has leaned higher). The shape of the distributions of most of the models is similar to before. We can be sure that the SVC is not fit for this task. Keeping in mind that this optimized model uses the same feature selection as before we can see many improvements on the fbeta score and some other metrics for some of our models (for instance the Gaussian Naive Bayes and some of the metrics of the Linear Discriminant Analysis).
+    \newline
+
     \section{Conclusions} \label{sec:conc}
+
+    Our best models have to be between the Random Forest classifier, the Gaussian Naive Bayes classifier and the Logistic Regression. We will train our winner on the whole dataset with the optimized parameter of one of these models, the Logistic Regression since it boasts one of the best fbeta scores that we care most for while maintaining very high metrics for the rest of the metrics (or low for the Hamming loss) and in particular the recall score which we care much for. This classification task an be solved well, to a high degree of satisfaction with relatively low amounts of data for the proper classification of both precision and recall.
+    \newline
 
     \section{Disclaimer} \label{sec:disc}
 

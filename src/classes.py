@@ -1,5 +1,4 @@
 # As is usual in alphabetical order
-
 from collections.abc import Callable
 import joblib
 from lightgbm import LGBMClassifier
@@ -15,6 +14,7 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.naive_bayes import GaussianNB
 from sklearn.metrics import f1_score
 from sklearn.metrics import fbeta_score
+from sklearn.feature_selection import SelectKBest, chi2
 from sklearn.svm import SVC
 from tqdm import tqdm
 from typing import Sequence
@@ -62,21 +62,6 @@ class RNCV:
         self.shape = (self.loops, self.oF, self.iF)
         os.makedirs(self.path, exist_ok=True)
         os.makedirs(self.figures, exist_ok=True)
-
-    def __len__(self) -> int:
-        """Returns the number of iterations that will be done"""
-        return self.loops * self.oF * self.iF
-
-    @timeit
-    def fit(self,
-            fs: int | None = None,
-            optimize: bool = False,
-            innerPlots: bool = True,
-            printEvals: bool = True) -> None:
-        """Splits the dataset and trains - evaluates all models with the given splits"""
-        # pre allocating memory
-        # In every loop we write over these lists and the final list should have all the values from all the respective folds
-        # In the next loop the lists will be overwritten
         self.outerFoldModels: list = [0] * self.oF
         self.outerFoldPredictions: list = [0] * self.oF
         self.outerFoldEvaluations: np.ndarray = np.array(
@@ -120,10 +105,28 @@ class RNCV:
             ] * self.loops,
             dtype = np.float64
         )
+
+    def __len__(self) -> int:
+        """Returns the number of iterations that will be done"""
+        return self.loops * self.oF * self.iF
+
+    @timeit
+    def fit(self,
+            fs: int | None = None,
+            optimize: bool = False,
+            innerPlots: bool = True,
+            printEvals: bool = True,
+            fsMethod: Callable | None = None) -> None:
+        """Splits the dataset and trains - evaluates all models with the given splits"""
+        # pre allocating memory
+        # In every loop we write over these lists and the final list should have all the values from all the respective folds
+        # In the next loop the lists will be overwritten
+        if fsMethod is None:
+            fsMethod = self.featureSelection
         self.preprocess()
         if fs is not None:
             holder = self.data['diagnosis']
-            self.data = self.featureSelection(self.data, n = fs)
+            self.data = fsMethod(self.data, n = fs, holder = holder.to_numpy(int))
             self.data['diagnosis'] = holder
             del holder
         for loop in tqdm(range(self.loops)):
@@ -144,50 +147,13 @@ class RNCV:
                 del holder
                 for index in range(self.iF):
                     if optimize:
-                        self.hyper = [
-                            self.optimizeLR(
-                                fbeta_score,
-                                self.train[index],
-                                self.trainLabels[index],
-                                self.val[index],
-                                self.valLabels[index],
-                            ),
-                            self.optimizeGNB(
-                                fbeta_score,
-                                self.train[index],
-                                self.trainLabels[index],
-                                self.val[index],
-                                self.valLabels[index],
-                            ),
-                            self.optimizeLDA(
-                                fbeta_score,
-                                self.train[index],
-                                self.trainLabels[index],
-                                self.val[index],
-                                self.valLabels[index],
-                            ),
-                            self.optimizeSVC(
-                                fbeta_score,
-                                self.train[index],
-                                self.trainLabels[index],
-                                self.val[index],
-                                self.valLabels[index],
-                            ),
-                            self.optimizeRFC(
-                                fbeta_score,
-                                self.train[index],
-                                self.trainLabels[index],
-                                self.val[index],
-                                self.valLabels[index],
-                            ),
-                            self.optimizeLGBM(
-                                fbeta_score,
-                                self.train[index],
-                                self.trainLabels[index],
-                                self.val[index],
-                                self.valLabels[index],
-                            )
-                        ]
+                        self.optimizeAll(
+                            fbeta_score,
+                            self.train[index],
+                            self.trainLabels[index],
+                            self.val[index],
+                            self.valLabels[index],
+                        )
                     # Train
                     self.innerFoldModels[index] = self.fitting(
                         self.estimators,
@@ -224,50 +190,13 @@ class RNCV:
                         hush = True
                     )
                 if optimize:
-                    self.hyper = [
-                        self.optimizeLR(
-                            fbeta_score,
-                            train[split],
-                            trainLabels[split],
-                            self.test[split],
-                            self.testLabels[split],
-                        ),
-                        self.optimizeGNB(
-                            fbeta_score,
-                            train[split],
-                            trainLabels[split],
-                            self.test[split],
-                            self.testLabels[split],
-                        ),
-                        self.optimizeLDA(
-                            fbeta_score,
-                            train[split],
-                            trainLabels[split],
-                            self.test[split],
-                            self.testLabels[split],
-                        ),
-                        self.optimizeSVC(
-                            fbeta_score,
-                            train[split],
-                            trainLabels[split],
-                            self.test[split],
-                            self.testLabels[split],
-                        ),
-                        self.optimizeRFC(
-                            fbeta_score,
-                            train[split],
-                            trainLabels[split],
-                            self.test[split],
-                            self.testLabels[split],
-                        ),
-                        self.optimizeLGBM(
-                            fbeta_score,
-                            train[split],
-                            trainLabels[split],
-                            self.test[split],
-                            self.testLabels[split],
-                        )
-                    ]
+                    self.optimizeAll(
+                        fbeta_score,
+                        train[split],
+                        trainLabels[split],
+                        self.test[split],
+                        self.testLabels[split],
+                    )
                 # Train
                 self.outerFoldModels[split] = self.fitting(
                     self.estimators,
@@ -319,10 +248,69 @@ class RNCV:
         )
         return None
 
-    def winner(self, arg: type) -> None:
+    @timeit
+    def bonusFS(self, data: pd.DataFrame, n: int, holder: Any) -> None:
+        """Does a select k best feature selection based on the chi^2"""
+        return pd.DataFrame(SelectKBest(chi2, k=n).fit_transform(data, holder))
+
+    @timeit
+    def optimizeAll(self, score: Callable, tr: list | np.ndarray, trl: list | np.ndarray, vl: list | np.ndarray, vll: list | np.ndarray, index: int) -> None:
+        """Updates the self.hyper parameter"""
+        self.hyper = [
+            self.optimizeLR(
+                score,
+                tr[index],
+                trl[index],
+                vl[index],
+                vll[index],
+            ),
+            self.optimizeGNB(
+                score,
+                tr[index],
+                trl[index],
+                vl[index],
+                vll[index],
+            ),
+            self.optimizeLDA(
+                score,
+                tr[index],
+                trl[index],
+                vl[index],
+                vll[index],
+            ),
+            self.optimizeSVC(
+                score,
+                tr[index],
+                trl[index],
+                vl[index],
+                vll[index],
+            ),
+            self.optimizeRFC(
+                score,
+                tr[index],
+                trl[index],
+                vl[index],
+                vll[index],
+            ),
+            self.optimizeLGBM(
+                score,
+                tr[index],
+                trl[index],
+                vl[index],
+                vll[index],
+            )
+    ]
+
+    @timeit
+    def winner(self) -> None:
         """Trains and saves the winner with the whole data"""
-        # body
-        return None
+        model = self.wrapperOFM[4][0][0]
+        # split data
+        train, labels = self.isolator(self.data)
+        # fit
+        model.fit(train.to_numpy(dtype = np.float64), labels.to_numpy(dtype = int))
+        # save model
+        joblib.dump(model, '../models/winner.pkl')
 
     @timeit
     def preprocess(self) -> pd.DataFrame:
@@ -335,7 +323,7 @@ class RNCV:
         return self.data
 
     @timeit
-    def featureSelection(self, data: pd.DataFrame, n: int | float) -> pd.DataFrame:
+    def featureSelection(self, data: pd.DataFrame, n: int | float, holder: Any) -> pd.DataFrame:
         """Documentation"""
         # body
         self.pca = self.fitPca(data = data, n = n)
