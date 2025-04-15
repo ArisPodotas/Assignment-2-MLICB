@@ -49,6 +49,7 @@ class RNCV:
         self.name: str = name
         self.figures = f'../figures/RNCV/{self.name}/' # For saving only the figures
         self.data: pd.DataFrame = data
+        self.dataCopy: pd.DataFrame = data
         self.estimators: list = estimators
         self.metrics = metrics
         self.loops: int = loops
@@ -123,7 +124,7 @@ class RNCV:
         # In the next loop the lists will be overwritten
         if fsMethod is None:
             fsMethod = self.featureSelection
-        self.preprocess()
+        self.preprocess(self.data)
         if fs is not None:
             holder = self.data['diagnosis']
             self.data = fsMethod(self.data, n = fs, holder = holder.to_numpy(int))
@@ -149,10 +150,11 @@ class RNCV:
                     if optimize:
                         self.optimizeAll(
                             fbeta_score,
-                            self.train[index],
-                            self.trainLabels[index],
-                            self.val[index],
-                            self.valLabels[index],
+                            self.train,
+                            self.trainLabels,
+                            self.val,
+                            self.valLabels,
+                            index = index
                         )
                     # Train
                     self.innerFoldModels[index] = self.fitting(
@@ -192,10 +194,11 @@ class RNCV:
                 if optimize:
                     self.optimizeAll(
                         fbeta_score,
-                        train[split],
-                        trainLabels[split],
-                        self.test[split],
-                        self.testLabels[split],
+                        train,
+                        trainLabels,
+                        self.test,
+                        self.testLabels,
+                        index = split
                     )
                 # Train
                 self.outerFoldModels[split] = self.fitting(
@@ -246,7 +249,6 @@ class RNCV:
             name = f'All loop inner fold boxplots',
             hush = True
         )
-        return None
 
     @timeit
     def bonusFS(self, data: pd.DataFrame, n: int, holder: Any) -> None:
@@ -301,26 +303,51 @@ class RNCV:
             )
     ]
 
+    def findBest(self, metric: Callable = fbeta_score) -> Callable:
+        """Will search the lists or the models with the best evaluation metric"""
+        winner: list = [0, 0] # This is to keep the index
+        currentBest = 0
+        # We neet to iterate self.wrapperOFM and pick the model with the best value in the same index in wrapperOFE
+        # wraperOFM is loops x oF x methods
+        # WrapperOFE is loops x oF x metrics x methods
+        # We will always look for logistic regression so that means the last index of wrapper ofm is alwasy 0
+        indexer = self.wrapperOFE.shape
+        for outer in range(indexer[0]):
+            for inner in range(indexer[1]):
+                # This is where the two lists can't be indexed the smae anymore
+                # Check best value
+                if self.wrapperOFE[outer, inner, 3, 0] >= currentBest:
+                    currentBest = self.wrapperOFE[outer, inner, 3, 0]
+                    currentWinner = [outer, inner]
+        winner = currentWinner
+        best = self.wrapperOFM[winner[0]][winner[1]][0]
+        return best
+
+    def reTrainBest(self, best: Callable, data: pd.DataFrame) -> Callable:
+        """Takes the best model and re trains it with the whole data"""
+        # split data
+        data = self.preprocess(data)
+        train, labels = self.isolator(data)
+        # fit
+        best.fit(train.to_numpy(dtype = np.float64), labels.to_numpy(dtype = int))
+        return best
+
     @timeit
     def winner(self) -> None:
-        """Trains and saves the winner with the whole data"""
-        model = self.wrapperOFM[4][0][0]
-        # split data
-        train, labels = self.isolator(self.data)
-        # fit
-        model.fit(train.to_numpy(dtype = np.float64), labels.to_numpy(dtype = int))
+        """Saves the winner with the whole data"""
+        model = self.reTrainBest(self.findBest(metric = fbeta_score), self.dataCopy)
         # save model
         joblib.dump(model, '../models/winner.pkl')
 
     @timeit
-    def preprocess(self) -> pd.DataFrame:
+    def preprocess(self, data: pd.DataFrame) -> pd.DataFrame:
         """Applies the utils class pipeline to the data"""
-        self.data = self.utils.interpolate(self.data, 1, [0, 1]) # makes benign 0 and malignant 1
-        if self.utils.findMissing(self.data):
-            self.data = self.utils.meadianSubstitution(self.data)
-        if self.utils.findDuplicates(self.data):
-            self.data = self.utils.copyPrune(self.data)
-        return self.data
+        data = self.utils.interpolate(data, 1, [0, 1]) # makes benign 0 and malignant 1
+        if self.utils.findMissing(data):
+            data = self.utils.meadianSubstitution(data)
+        if self.utils.findDuplicates(data):
+            data = self.utils.copyPrune(data)
+        return data
 
     @timeit
     def featureSelection(self, data: pd.DataFrame, n: int | float, holder: Any) -> pd.DataFrame:

@@ -109,7 +109,16 @@ National and Kapodistrian University of Athens}
 
     \section*{Abstract} \label{sec:abs}
 
+    The task of properly classifying tumors into benign and malignant categories using machine learning has been a focal point of the $21^{st}$ century. Here we use the advances of machine learning as a field to try and propose methods of completing this classification in a non trivial way.
+    \newline
+
     \section{Introduction} \label{sec:intro}
+
+    In classification task like the one of categorizing tumors into benign and malignant categories, the trivial solution is to focus on the inequality of the two sets. Should a model always predict a benign tumor it would have a good accuracy over all instances due to the how frequent the benign tumors are over the malignant ones. For this reason this classification task remains prominent in the machine learning space. It is critical to develop reliable methods for doing this classification since domain knowledge takes years to attain and mistakes are critical and costly. Benign tumors can appear in all tissues through ones lifetime, at any points a multitude of factors may convert a benign tumor to a malignant one \cite{koten_transition_1991}, \cite{koten_difference_1993}.
+    \newline
+
+    Catching malignant tumors early can be crucial for the survival and cost of treatment for women with breast cancer and thus it is important to have apt methodology that can accurately distinguish between benign and malignant tumors \cite{din_breast_2022}. Machine learning models have been developed for calcifications of breast cancer tumors ranging from mammography, ultrasound, MRI, histology, and thermography \cite{radak_machine_2023}. Images of fine needle aspirates as in our data will contribute to the available methods of classification for this cause.
+    \newline
 
     \section{Methods} \label{sec:methods}
 
@@ -193,7 +202,7 @@ National and Kapodistrian University of Athens}
 
 \begin{multicols}{2}
 
-    This figure was made in Excalidraw \cite{}. Only the main aspects of the class are written in the flow diagram since other implementation details are not part of the purpose of the class such as the "\_\_repr\_\_()" magic method.
+    This figure was made in \href{https://excalidraw.com}{Excalidraw}. Only the main aspects of the class are written in the flow diagram since other implementation details are not part of the purpose of the class such as the "\_\_repr\_\_()" magic method.
     \newline
 
     The "RNCV" class has an attribute of a "Utility" class instance object and that is why these two have control flow from one into the other.
@@ -219,7 +228,7 @@ National and Kapodistrian University of Athens}
 
     \subsection{Hyper parameter optimization} \label{subsec:optuna}
 
-    The optuna library \cite{} was used for all hyperparameter tuning (only in an instance after the baseline). All optimizations are in relation to the fbeta score since we would like to define the beta parameter of this metric to $2$ for a higher weight on the smaller positive class.
+    The optuna library \cite{noauthor_optuna_nodate} was used for all hyperparameter tuning (only in an instance after the baseline). All optimizations are in relation to the fbeta score since we would like to define the beta parameter of this metric to $2$ for a higher weight on the smaller positive class.
     \newline
 
     \section{Results} \label{sec:res}
@@ -251,7 +260,7 @@ National and Kapodistrian University of Athens}
 
 \begin{multicols}{2}
 
-    We can make some sort of comment on the appearance of the central limit theorem in Figure~\ref{fig:hists} considering we get a Gaussian looking distribution \cite{} from taking the mean values of feature's distributions.
+    We can make some sort of comment on the appearance of the central limit theorem in Figure~\ref{fig:hists} considering we get a Gaussian looking distribution \cite{kwak_central_2017} from taking the mean values of feature's distributions.
     \newline
 
 \end{multicols}
@@ -311,19 +320,22 @@ National and Kapodistrian University of Athens}
 
     \subsection{Bonus 1} \label{subsec:bonus}
 
-    The previous feature selection method was a PCA, now we will try () and compare it to the previous feature selection however we will not take it into account for our winner model and the final conclusions to be fair.
+    The previous feature selection method was a PCA, now we will try Select k best with a metric of $X^2$ and compare it to the previous feature selection however we will not take it into account for our winner model and the final conclusions to be fair.
     \newline
 
 \end{multicols}
 
 \begin{figure}[H]
     \begin{center}
-        \includegraphics[width=0.95\textwidth]{figures/RNCV/FeatureSelection/All loop outer folds boxplots.png}
-        \caption{Final distributions of all loops of the feature selected model}\label{fig:fs model desc}
+        \includegraphics[width=0.95\textwidth]{figures/RNCV/Bonus/All loop outer folds boxplots.png}
+        \caption{Final distributions of all loops of the feature selected model using $X^2$ Select k best}\label{fig:bonus}
     \end{center}
 \end{figure}
 
 \begin{multicols}{2}
+
+    In comparison to the PCA this feature selection has performed better, the assumption is that since the principled component analysis needs z-scaling before hand and we have not done this that it has performed worse.
+    \newline
 
     \subsection{Optimized} \label{subsec:opted model}
 
@@ -361,6 +373,8 @@ National and Kapodistrian University of Athens}
         \item For acquisition of the relative documentation.
         \item For helping with the \LaTeX table formatting in this report for time efficiency.
         \item Debugging help
+        \item In the function "plotKfoldSummary" to help with getting the box plots of all folds into one axis since 5 different box plots in each axis was generated until the .flatten method was called
+        \item For help when saving the winner since the models were ran but the winner was not saved so in order to save the winner we had to load back in a model from joblib but new methods had been added to the class. The help was to ask if when we load back in a model the new methods will be brought in, apparently they do since the pkl file keeps the attribute values and re calls the class upon loading from joblib with the parameters so it inherits the new methods.
     \end{enumerate}
 
     \section{Citations} \label{sec:citations}
