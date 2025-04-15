@@ -3,3 +3,7 @@ main.log
 main.out
 main.toc
 
+main.bbl
+main-blx.bib
+main.blg
+main.run.xml
