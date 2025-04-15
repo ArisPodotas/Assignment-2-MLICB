@@ -14,7 +14,7 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.naive_bayes import GaussianNB
 from sklearn.metrics import f1_score
 from sklearn.metrics import fbeta_score
-from sklearn.feature_selection import SelectKBest, chi2
+from sklearn.feature_selection import SelectKBest, chi2, mutual_info_classif
 from sklearn.svm import SVC
 from tqdm import tqdm
 from typing import Sequence
@@ -124,7 +124,7 @@ class RNCV:
         # In the next loop the lists will be overwritten
         if fsMethod is None:
             fsMethod = self.featureSelection
-        self.preprocess(self.data)
+        self.data = self.preprocess(self.data)
         if fs is not None:
             holder = self.data['diagnosis']
             self.data = fsMethod(self.data, n = fs, holder = holder.to_numpy(int))
@@ -254,6 +254,11 @@ class RNCV:
     def bonusFS(self, data: pd.DataFrame, n: int, holder: Any) -> None:
         """Does a select k best feature selection based on the chi^2"""
         return pd.DataFrame(SelectKBest(chi2, k=n).fit_transform(data, holder))
+
+    @timeit
+    def bonusFS2(self, data: pd.DataFrame, n: int, holder: Any) -> None:
+        """Does a select k best feature selection based on the chi^2"""
+        return pd.DataFrame(SelectKBest(mutual_info_classif, k=n).fit_transform(data, holder))
 
     @timeit
     def optimizeAll(self, score: Callable, tr: list | np.ndarray, trl: list | np.ndarray, vl: list | np.ndarray, vll: list | np.ndarray, index: int) -> None:

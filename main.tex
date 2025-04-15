@@ -15,7 +15,7 @@
 \usepackage{titlesec}
 \usepackage{tikz, pgfplots}
 \usepackage[utf8]{inputenc}
-\usepackage[backend=biber,style=apa]{biblatex}
+\usepackage[backend=biber,style=ieee]{biblatex}
 
 % Requirement libs
 \usetikzlibrary{positioning}
@@ -223,7 +223,7 @@ National and Kapodistrian University of Athens}
     For the main requirements of the assignment a Principled Component Analysis was used (after the baseline models). We will require a 95\% explain of our data variance after the feature selection.
     \newline
 
-    For further feature selections see \ref{sec:bonus1}
+    For further feature selections see \ref{subsec:bonus1}
     \newline
 
     \subsection{Hyper parameter optimization} \label{subsec:optuna}
@@ -318,7 +318,7 @@ National and Kapodistrian University of Athens}
     We notice that the metrics do not improve much since there is little space to improve from the Baseline~\ref{subsec:baseline}. Infact we expect that since we prune so many of our features to only remain with $2$ form the initial $31$ our metrics would decrease, here we see a resilience to this and a very good explanatory feature in our data.
     \newlin
 
-    \subsection{Bonus 1} \label{subsec:bonus}
+    \subsection{Bonus 1} \label{subsec:bonus1}
 
     The previous feature selection method was a PCA, now we will try Select k best with a metric of $X^2$ and compare it to the previous feature selection however we will not take it into account for our winner model and the final conclusions to be fair.
     \newline
@@ -332,9 +332,16 @@ National and Kapodistrian University of Athens}
     \end{center}
 \end{figure}
 
+\begin{figure}[H]
+    \begin{center}
+        \includegraphics[width=0.95\textwidth]{figures/RNCV/BonusMI/All loop outer folds boxplots.png}
+        \caption{Final distributions of all loops of the feature selected model using Mutual Information Select k best}\label{fig:bonusMI}
+    \end{center}
+\end{figure}
+
 \begin{multicols}{2}
 
-    In comparison to the PCA this feature selection has performed better, the assumption is that since the principled component analysis needs z-scaling before hand and we have not done this that it has performed worse.
+    In comparison to the PCA this feature selection has performed better, the assumption is that since the principled component analysis needs z-scaling before hand and we have not done this that it has performed worse. The Mutual Information infact has metrics that reach 1 which is most likely overfitting than anything else.
     \newline
 
     \subsection{Optimized} \label{subsec:opted model}
