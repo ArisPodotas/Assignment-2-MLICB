@@ -63,6 +63,9 @@ class RNCV:
         self.shape = (self.loops, self.oF, self.iF)
         os.makedirs(self.path, exist_ok=True)
         os.makedirs(self.figures, exist_ok=True)
+        # pre allocating memory
+        # In every loop we write over these lists and the final list should have all the values from all the respective folds
+        # In the next loop the lists will be overwritten
         self.outerFoldModels: list = [0] * self.oF
         self.outerFoldPredictions: list = [0] * self.oF
         self.outerFoldEvaluations: np.ndarray = np.array(
@@ -106,6 +109,7 @@ class RNCV:
             ] * self.loops,
             dtype = np.float64
         )
+        # Look at the fit and loop functions for what happens with these lists
 
     def __len__(self) -> int:
         """Returns the number of iterations that will be done"""
@@ -119,9 +123,6 @@ class RNCV:
             printEvals: bool = True,
             fsMethod: Callable | None = None) -> None:
         """Splits the dataset and trains - evaluates all models with the given splits"""
-        # pre allocating memory
-        # In every loop we write over these lists and the final list should have all the values from all the respective folds
-        # In the next loop the lists will be overwritten
         if fsMethod is None:
             fsMethod = self.featureSelection
         self.data = self.preprocess(self.data)
@@ -164,6 +165,7 @@ class RNCV:
                         arguments = self.hyper,
                         hush = True
                     )
+                    # Predict
                     self.innerFoldPredictions[index] = self.useFitModels(
                         self.innerFoldModels[index],
                         self.val[index],
@@ -208,12 +210,13 @@ class RNCV:
                     arguments = self.hyper,
                     hush = True
                 )
-                # Evaluate
+                # Predict
                 self.outerFoldPredictions[split] = self.useFitModels(
                     self.outerFoldModels[split],
                     self.test[split],
                     hush = True
                 )
+                # Evaluate
                 self.outerFoldEvaluations[split] = self.applyMetrics(
                     self.metrics,
                     self.outerFoldModels[split],
@@ -235,6 +238,7 @@ class RNCV:
                     name = f'Outer fold boxplots ({loop})',
                     hush = True
                 )
+        # Plotting
         self.plotKfoldSummary(
             self.outerFoldModels,
             self.metrics,
@@ -257,7 +261,7 @@ class RNCV:
 
     @timeit
     def bonusFS2(self, data: pd.DataFrame, n: int, holder: Any) -> None:
-        """Does a select k best feature selection based on the chi^2"""
+        """Does a select k best feature selection based on the mutual information"""
         return pd.DataFrame(SelectKBest(mutual_info_classif, k=n).fit_transform(data, holder))
 
     @timeit
@@ -340,9 +344,16 @@ class RNCV:
     @timeit
     def winner(self) -> None:
         """Saves the winner with the whole data"""
-        model = self.reTrainBest(self.findBest(metric = fbeta_score), self.dataCopy)
+        self.bestModel = self.reTrainBest(self.findBest(metric = fbeta_score), self.dataCopy)
         # save model
-        joblib.dump(model, '../models/winner.pkl')
+        joblib.dump(self, '../models/winner.pkl')
+
+    @timeit
+    def predict(self, data: pd.DataFrame) -> None:
+        """Given data produces their labels, will perform the median substitution"""
+        data = self.preprocess(data)
+        predictions = self.bestModel.predict(data)
+        return predictions
 
     @timeit
     def preprocess(self, data: pd.DataFrame) -> pd.DataFrame:
@@ -356,8 +367,7 @@ class RNCV:
 
     @timeit
     def featureSelection(self, data: pd.DataFrame, n: int | float, holder: Any) -> pd.DataFrame:
-        """Documentation"""
-        # body
+        """Default feature selection (pca)"""
         self.pca = self.fitPca(data = data, n = n)
         return self.applyPca(data = data, pca = self.pca)
 
@@ -398,7 +408,7 @@ class RNCV:
                 [0] * int(rows/splits)
             ] * splits
         , dtype = np.float64)
-        # This one should have however many rows are left from the previous array
+        # This one should have however many rows are left over in the data from the previous array
         reciprocal: np.ndarray = np.array(
             [
                 [
@@ -415,10 +425,11 @@ class RNCV:
         for split in range(splits):
             # pieces
             # Isolating the reciprocal of the 1/splits wedge of the data
-            restLeft: np.ndarray = piece.iloc[0:int(rows/splits) * split, :].values
-            restRight: np.ndarray = piece.iloc[int(rows/splits) * (split + 1):-1, :].values
+            restLeft: np.ndarray = piece.iloc[0:int(rows/splits) * split, :].values # From the begining up till the wedge
+            restRight: np.ndarray = piece.iloc[int(rows/splits) * (split + 1):-1, :].values # From the wedge end till the end
             # Isolating the 1/splits wedge in the data
-            wedges[split, :, :] = piece.iloc[int(rows/splits) * split:int(rows/splits) * (split + 1), :].values
+            wedges[split, :, :] = piece.iloc[int(rows/splits) * split:int(rows/splits) * (split + 1), :].values # Just the wedge
+            # Assigning the reciprocals
             reciprocal[split, :len(restLeft), :] = restLeft
             reciprocal[split, len(restLeft):, :] = restRight
             # labels
@@ -449,6 +460,7 @@ class RNCV:
                 )
             ] * scale
         , dtype = np.float64)
+        # I think it always has arguments but just in case
         if arguments:
             index = 0
             for model, args in zip(methods, arguments):
