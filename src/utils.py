@@ -216,3 +216,4 @@ class Utils:
             print(f'Total explain: {sum(pca[1])}\nComponents {components}')
         return pca
 
+
